@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <title>VR PA#1</title>
+    <style>
+      body {
+        background-color: #eeeeee;
+      }
+    </style>
+
+    <script src="./Utils/trackball-rotator.js"></script>
+    <script src="./Utils/m4.js"></script>
+    <script src="./shader.gpu"></script>
+    <script src="./main.js"></script>
+  </head>
+  <body onload="init()">
+    <h2>Surface of Revolution of Parabola</h2>
+    <h2>Kliaus Kyrylo TR-21mp</h2>
+
+    <div class="cameraControls">
+      <div>
+        <label for="eyeSeparation">Eye separation</label>
+        <input
+          id="eyeSeparation"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value="20"
+        />
+        <span class="sliderValue">0</span>
+      </div>
+      <div>
+        <label for="fieldOfViev">Field of View</label>
+        <input
+          id="fieldOfViev"
+          type="range"
+          min="1"
+          max="3"
+          step="0.05"
+          value="2"
+        />
+        <span class="sliderValue">0</span>
+      </div>
+      <div>
+        <label for="near">Near Clipping distance</label>
+        <input
+          id="near" 
+          type="range"
+          min="0" 
+          max="20" 
+          step="1" 
+          value="10" 
+        />
+        <span class="sliderValue">0</span>
+      </div>
+      <div>
+        <label for="convergence">Convergence</label>
+        <input
+          id="convergence"
+          type="range"
+          min="100"
+          max="2500"
+          step="50"
+          value="2000"
+        />
+        <span class="sliderValue">0</span>
+      </div>
+    </div>
+    <div id="canvas-holder">
+      <canvas
+        width="700"
+        height="700"
+        id="webglcanvas"
+        style="background-color: rgb(0, 0, 0)"
+      ></canvas>
+    </div>
+  </body>
+</html>
