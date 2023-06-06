@@ -708,7 +708,7 @@ function LoadSphereTexture() {
   sphereTexture = gl.createTexture();
   let image = new Image();
   image.src =
-    "https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?cs=srgb&dl=pexels-yurii-hlei-1545743.jpg&fm=jpg";
+    "https://www.the3rdsequence.com/texturedb/download/116/texture/jpg/1024/irregular+wood+planks-1024x1024.jpg";
   image.crossOrigin = "anonymous";
 
   image.onload = () => {
@@ -853,8 +853,7 @@ function compassHeading(alpha, beta, gamma) {
   return compassHeading * (180 / Math.PI); // Compass Heading (in degrees)
 }
 
-//60 times per second seems reasonable // turned out that NO - Maximum allowed frequency value for this sensor type is 10 Hz.
-// reference: https://developer.mozilla.org/en-US/docs/Web/API/Magnetometer
+
 let magSensor = new Magnetometer({ frequency: 10 });
 magSensor.addEventListener("reading", (e) => {
   const alpha = magSensor.x;
