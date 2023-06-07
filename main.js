@@ -9,6 +9,16 @@ let video; // Object holding video stream from camera
 let stereoCam; // Object holding stereo camera calculation parameters
 let textureWebCam; // Texture to optimize convertation from png to bmp and so on
 let texture_object; // Texture object holds a texture of type gl.TEXTURE_2D for surface
+let magnetometerData; // Object that holds data from magnetometer
+let audioContext;
+let sourceNode;
+let pannerNode;
+let filterNode;
+let audioElement;
+let playButton;
+let listener;
+let sphere;
+let sphereTexture;
 
 let point = { u: 200, v: 200 };
 
@@ -128,21 +138,21 @@ function Model(name) {
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array(vertexList),
-      gl.STREAM_DRAW
+      gl.STATIC_DRAW
     );
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalsBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array(normalsList),
-      gl.STREAM_DRAW
+      gl.STATIC_DRAW
     );
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.iTextureBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array(textureList),
-      gl.STREAM_DRAW
+      gl.STATIC_DRAW
     );
 
     this.count = vertexList.length / 3;
@@ -161,7 +171,11 @@ function Model(name) {
     gl.enableVertexAttribArray(shProgram.iTextureCoords);
     gl.vertexAttribPointer(shProgram.iTextureCoords, 2, gl.FLOAT, false, 0, 0);
 
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
+    if (this.name == "Sphere") {
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, this.count);
+    } else {
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
+    }
   };
 }
 
@@ -200,7 +214,6 @@ function ShaderProgram(name, program) {
  * (Note that the use of the above drawPrimitive function is not an efficient
  * way to draw with WebGL.  Here, the geometry is so simple that it doesn't matter.)
  */
-// let tempview;
 function draw() {
   gl.clearColor(0, 0, 0, 1);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -210,8 +223,6 @@ function draw() {
 
   /* Get the view matrix from the SimpleRotator object.*/
   let modelView = spaceball.getViewMatrix();
-  // if (!tempview) { tempview = modelView }
-  // console.log("modelView : " + modelView)
 
   let rotateToPointZero = m4.axisRotation([0.707, 0.707, 0], 0.7);
   let translateToPointZero = m4.translation(0, 0, -10);
@@ -302,6 +313,23 @@ function draw() {
   surface.Draw();
 
   gl.colorMask(true, true, true, true);
+
+  //CGW
+  gl.bindTexture(gl.TEXTURE_2D, sphereTexture);
+  gl.uniform4fv(shProgram.iColor, [1, 1, 1, 1]);
+  gl.uniform1f(shProgram.iL, 10);
+  gl.uniform1i(shProgram.iTexture, 0);
+  gl.uniformMatrix4fv(
+    shProgram.iModelViewMatrix,
+    false,
+    m4.multiply(
+      projection,
+      moveModelCGWRotationMatrix(calculateSurfaceRotation())
+    )
+  );
+  sphere.Draw();
+  gl.clear(gl.DEPTH_BUFFER_BIT);
+  //CGW
 }
 
 function CreateSurfaceData() {
@@ -408,8 +436,9 @@ function y0(v) {
 }
 
 /* Initialize the WebGL context. Called from init() */
+let prog;
 function initGL() {
-  let prog = createProgram(gl, vertexShaderSource, fragmentShaderSource);
+  prog = createProgram(gl, vertexShaderSource, fragmentShaderSource);
 
   shProgram = new ShaderProgram("Basic", prog);
   shProgram.Use();
@@ -451,9 +480,12 @@ function initGL() {
   surface = new Model("Surface");
   surface.BufferData(CreateSurfaceData());
 
+  sphere = new Model("Sphere");
+  sphere.BufferData(createSphere(1, 70, 70));
+  LoadSphereTexture();
+
   stereoCam = new StereoCamera(2000, 35.0, 1.3, 45.0, 10.0, 20000); // "If something doesn't work - try to change numbers a bit"
 
-  // references - lection and https://developer.mozilla.org/ru/docs/Web/API/MediaDevices/getUserMedia
   // Set to global video variable (or define and initialize variable globally(not good for consistency)).
   video = document.createElement("video");
   var constraints = { video: true };
@@ -462,14 +494,12 @@ function initGL() {
     .then((stream) => {
       video.srcObject = stream;
       video.onloadedmetadata = function (e) {
-        // video.autoplay is shaggy, this approach is better(?)
         video.play();
       };
     })
     .catch(function (err) {
       console.log(err.name + ": " + err.message);
-    });
-  // always check for errors at the end.
+    }); // always check for errors at the end.
 
   gl.enable(gl.DEPTH_TEST);
 
@@ -487,6 +517,51 @@ function initGL() {
   LoadTexture();
 
   gl.enable(gl.DEPTH_TEST);
+
+  const audioElement = document.getElementById("audioElement");
+
+  audioElement.addEventListener("play", () => {
+    if (!audioContext) {
+      let AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioContext = new AudioContext();
+      listener = audioContext.listener;
+
+      listener.positionX.value = 0;
+      listener.positionY.value = 0;
+      listener.positionZ.value = -5;
+      listener.forwardX.value = 0;
+      listener.forwardY.value = 0;
+      listener.forwardZ.value = -1;
+
+      sourceNode = audioContext.createMediaElementSource(audioElement);
+      pannerNode = audioContext.createPanner();
+
+      // Connect audio nodes and set up spatial audio properties
+      // Create a BiquadFilterNode
+      filterNode = audioContext.createBiquadFilter();
+      filterNode.type = "highpass";
+      filterNode.frequency.value = 7777;
+      filterNode.Q.value = 1;
+
+      sourceNode.connect(pannerNode);
+      pannerNode.connect(audioContext.destination);
+    }
+    audioElement.play();
+  });
+}
+
+function toggleFilter() {
+  const checkbox = document.getElementById("filterCheckbox");
+  const filterEnabled = checkbox.checked;
+
+  if (filterEnabled) {
+    pannerNode.disconnect();
+    filterNode.connect(audioContext.destination);
+    pannerNode.connect(filterNode);
+  } else {
+    filterNode.disconnect();
+    pannerNode.connect(audioContext.destination);
+  }
 }
 
 /* Creates a program for use in the WebGL context gl, and returns the
@@ -538,6 +613,7 @@ function init() {
   }
   try {
     initGL(); // initialize the WebGL graphics context
+    //    initGLSphere();
   } catch (e) {
     document.getElementById("canvas-holder").innerHTML =
       "<p>Sorry, could not initialize the WebGL graphics context: " +
@@ -586,7 +662,7 @@ function LoadTexture() {
   texture_object = gl.createTexture();
   let image = new Image();
   image.src =
-    "https://www.the3rdsequence.com/texturedb/download/255/texture/jpg/1024/ice+frost-1024x1024.jpg";
+    "https://www.the3rdsequence.com/texturedb/download/116/texture/jpg/1024/irregular+wood+planks-1024x1024.jpg";
   image.crossOrigin = "anonymous";
 
   image.onload = () => {
@@ -600,7 +676,8 @@ function LoadTexture() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    //www.the3rdsequence.com/texturedb/download/116/texture/jpg/1024/irregular+wood+planks-1024x1024.jpg
+    https: gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 
     // Tell gl to flip the orientation of the image on the Y axis. Most
     // images have their origin in the upper-left corner. WebGL expects
@@ -622,4 +699,177 @@ function CreateWebCamTexture() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.FLOAT, video);
+}
+
+// CGW
+function LoadSphereTexture() {
+  sphereTexture = gl.createTexture();
+  let image = new Image();
+  image.src =
+    "https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?cs=srgb&dl=pexels-yurii-hlei-1545743.jpg&fm=jpg";
+  image.crossOrigin = "anonymous";
+
+  image.onload = () => {
+    // Make the "texture object" be the active texture object. Only the
+    // active object can be modified or used. This also declares that the
+    // texture object will hold a texture of type gl.TEXTURE_2D. The type
+    // of the texture, gl.TEXTURE_2D, can't be changed after this initialization.
+    gl.bindTexture(gl.TEXTURE_2D, sphereTexture);
+
+    // Set parameters of the texture object.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+
+    // Tell gl to flip the orientation of the image on the Y axis. Most
+    // images have their origin in the upper-left corner. WebGL expects
+    // the origin of an image to be in the lower-left corner.
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+
+    // Store in the image in the GPU's texture object
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+    draw();
+  };
+}
+
+function createSphere(radius, latitudeBands, longitudeBands) {
+  const positions = [];
+  const indices = [];
+  const textureList = [];
+
+  for (let lat = 0; lat <= latitudeBands; lat++) {
+    const theta = (lat * Math.PI) / latitudeBands;
+    const sinTheta = Math.sin(theta);
+    const cosTheta = Math.cos(theta);
+
+    for (let long = 0; long <= longitudeBands; long++) {
+      const phi = (long * 2 * Math.PI) / longitudeBands;
+      const sinPhi = Math.sin(phi);
+      const cosPhi = Math.cos(phi);
+
+      const x = cosPhi * sinTheta;
+      const y = cosTheta;
+      const z = sinPhi * sinTheta;
+
+      positions.push(radius * x, radius * y, radius * z);
+      textureList.push(long / longitudeBands, lat / latitudeBands);
+    }
+  }
+
+  for (let lat = 0; lat < latitudeBands; lat++) {
+    for (let long = 0; long < longitudeBands; long++) {
+      const first = lat * (longitudeBands + 1) + long;
+      const second = first + longitudeBands + 1;
+
+      indices.push(first, second, first + 1);
+      indices.push(second, second + 1, first + 1);
+    }
+  }
+
+  // console.log("VertexList is: " + positions);
+  return {
+    vertexList: positions,
+    normalsList: indices,
+    textureList: textureList,
+  };
+}
+
+function moveModelCGWRotationMatrix(compassHeadingM) {
+  const centerX = 0;
+  const centerY = 0;
+  const centerZ = 0;
+
+  // Define the radius of circular motion
+  const radius = 3; // Adjust the radius as needed
+
+  // Initialize the angle
+  let angle = compassHeadingM / 4;
+
+  const objectX = centerX + Math.cos(angle) * radius;
+  const objectY = centerY;
+  const objectZ = centerZ + Math.sin(angle) * radius;
+
+  if (pannerNode != undefined) {
+    pannerNode.setPosition(objectX, objectY, objectZ); // Update the position of the audio source
+    pannerNode.setOrientation(0, 0, -1); // Set the orientation of the audio source
+    // pannerNode.distanceModel = 'linear'; // Change the distance model if needed
+  }
+
+  let rotationMatrix = new Float32Array([
+    Math.cos(angle),
+    0,
+    Math.sin(angle),
+    0,
+    0,
+    1,
+    0,
+    0,
+    -Math.sin(angle),
+    0,
+    Math.cos(angle),
+    0,
+    0,
+    0,
+    0,
+    1,
+  ]);
+
+  let translateToCenter2 = m4.translation(objectX, objectZ, 0); //-10
+  rotationMatrix = m4.multiply(translateToCenter2, rotationMatrix);
+  return rotationMatrix;
+}
+
+function compassHeading(alpha, beta, gamma) {
+  var degtorad = Math.PI / 180;
+  var _x = beta ? beta * degtorad : 0; // beta value
+  var _y = gamma ? gamma * degtorad : 0; // gamma value
+  var _z = alpha ? alpha * degtorad : 0; // alpha value
+
+  var cX = Math.cos(_x);
+  var cY = Math.cos(_y);
+  var cZ = Math.cos(_z);
+  var sX = Math.sin(_x);
+  var sY = Math.sin(_y);
+  var sZ = Math.sin(_z);
+
+  // Calculate Vx and Vy components
+  var Vx = -cZ * sY - sZ * sX * cY;
+  var Vy = -sZ * sY + cZ * sX * cY;
+
+  // Calculate compass heading
+  var compassHeading = Math.atan(Vx / Vy);
+
+  // Convert compass heading to use whole unit circle
+  if (Vy < 0) {
+    compassHeading += Math.PI;
+  } else if (Vx < 0) {
+    compassHeading += 2 * Math.PI;
+  }
+
+  return compassHeading * (180 / Math.PI); // Compass Heading (in degrees)
+}
+
+//60 times per second seems reasonable // turned out that NO - Maximum allowed frequency value for this sensor type is 10 Hz.
+// reference: https://developer.mozilla.org/en-US/docs/Web/API/Magnetometer
+let magSensor = new Magnetometer({ frequency: 10 });
+magSensor.addEventListener("reading", (e) => {
+  const alpha = magSensor.x;
+  const beta = magSensor.y;
+  const gamma = magSensor.z;
+  magnetometerData = [alpha, beta, gamma];
+});
+magSensor.start();
+
+function calculateSurfaceRotation() {
+  if (magnetometerData != null) {
+    // Calculate rotation
+    return compassHeading(
+      magnetometerData[0],
+      magnetometerData[1],
+      magnetometerData[2]
+    );
+  }
 }
