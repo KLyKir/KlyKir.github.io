@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "vr-kpi",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "vite --host"
+  },
+  "devDependencies": {
+    "vite": "^3.2.0",
+    "vite-plugin-mkcert": "^1.15.0"
+  },
+  "dependencies": {
+    "@vitejs/plugin-basic-ssl": "^1.0.1"
+  }
+}

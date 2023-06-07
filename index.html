@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <title>PA#2</title>
+    <style>
+      body {
+        background-color: #eeeeee;
+      }
+    </style>
+
+    <script src="./Utils/trackball-rotator.js"></script>
+    <script src="./Utils/m4.js"></script>
+    <script src="./shader.gpu"></script>
+    <script src="./main.js"></script>
+  </head>
+  <body onload="init()">
+    
+    <h2>TR-21mp, Kliaus Kyrylo, VR, PA2</h2>
+
+    <div>
+      <div>
+        <label for="eyeSeparation">Eye separation</label>
+        <input
+          id="eyeSeparation"
+          type="range"
+          min="0"
+          max="10"
+          step="1"
+          value="2"
+        />
+      </div>
+      <div>
+        <label for="fieldOfViev">Field Of View</label>
+        <input
+          id="fieldOfViev"
+          type="range"
+          min="1"
+          max="3"
+          step="0.05"
+          value="2"
+        />
+      </div>
+      <div>
+        <label for="near">Near Clipping distance</label>
+        <input
+          id="near"
+          type="range"
+          min="0"
+          max="20"
+          step="1"
+          value="10"
+        />
+      </div>
+      <div>
+        <label for="convergence">Convergence</label>
+        <input
+          id="convergence"
+          type="range"
+          min="0"
+          max="100"
+          step="2"
+          value="50"
+        />
+      </div>
+      <div>
+        <label for="camera">Webcam</label>
+        <input id="camera" type="checkbox" />
+      </div>
+      <div>
+        <label for="orientation">Device orientation</label>
+        <input id="orientation" type="checkbox" />
+      </div>
+    </div>
+
+    <div id="canvas-holder">
+      <canvas
+        width="700"
+        height="700"
+        id="webglcanvas"
+        style="background-color: red"
+      ></canvas>
+    </div>
+  </body>
+</html>
