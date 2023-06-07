@@ -90,7 +90,7 @@ function draw() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   /* Set the values of the projection transformation */
-  let projection = m4.orthographic(0, 1, 0, 1, -1, 1);
+  let projection = m4.frustum(0, 1, 0, 1, -1, 1);
   let convergence;
   let eyeSeparation;
   let ratio;
@@ -131,12 +131,12 @@ function draw() {
   left = (-b * near) / convergence;
   right = (c * near) / convergence;
 
-  let projectionLeft = m4.orthographic(left, right, bottom, top, near, far);
+  let projectionLeft = m4.frustum(left, right, bottom, top, near, far);
 
   left = (-c * near) / convergence;
   right = (b * near) / convergence;
 
-  let projectionRight = m4.orthographic(left, right, bottom, top, near, far);
+  let projectionRight = m4.frustum(left, right, bottom, top, near, far);
 
   /* Get the view matrix from the SimpleRotator object.*/
   let modelView = spaceball.getViewMatrix();
